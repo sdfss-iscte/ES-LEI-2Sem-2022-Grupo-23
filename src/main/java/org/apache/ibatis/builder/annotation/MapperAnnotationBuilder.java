@@ -117,26 +117,32 @@ public class MapperAnnotationBuilder {
     if (!configuration.isResourceLoaded(resource)) {
       loadXmlResource();
       configuration.addLoadedResource(resource);
-      assistant.setCurrentNamespace(type.getName());
-      parseCache();
-      parseCacheRef();
-      for (Method method : type.getMethods()) {
-        if (!canHaveStatement(method)) {
-          continue;
-        }
-        if (getAnnotationWrapper(method, false, Select.class, SelectProvider.class).isPresent()
-            && method.getAnnotation(ResultMap.class) == null) {
-          parseResultMap(method);
-        }
-        try {
-          parseStatement(method);
-        } catch (IncompleteElementException e) {
-          configuration.addIncompleteMethod(new MethodResolver(this, method));
-        }
-      }
+      Method method = method();
     }
     parsePendingMethods();
   }
+
+private Method method() throws SecurityException {
+	assistant.setCurrentNamespace(type.getName());
+	parseCache();
+	parseCacheRef();
+	for (Method method : type.getMethods()) {
+		if (!canHaveStatement(method)) {
+			continue;
+		}
+		if (getAnnotationWrapper(method, false, Select.class, SelectProvider.class).isPresent()
+				&& method.getAnnotation(ResultMap.class) == null) {
+			parseResultMap(method);
+		}
+		parseStatement(method);
+		try {
+			parseStatement(method);
+		} catch (IncompleteElementException e) {
+			configuration.addIncompleteMethod(new MethodResolver(this, method));
+		}
+	}
+	return method();
+}
 
   private boolean canHaveStatement(Method method) {
     // issue #237

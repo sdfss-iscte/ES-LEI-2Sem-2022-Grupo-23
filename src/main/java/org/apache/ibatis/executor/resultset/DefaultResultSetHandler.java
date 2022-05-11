@@ -470,12 +470,8 @@ private static final Object DEFERRED = new Object();
     boolean foundValues = false;
     final List<ResultMapping> propertyMappings = resultMap.getPropertyResultMappings();
     for (ResultMapping propertyMapping : propertyMappings) {
-      String column = prependPrefix(propertyMapping.getColumn(), columnPrefix);
-      if (propertyMapping.getNestedResultMapId() != null) {
-        // the user added a column attribute to a nested result map, ignore it
-        column = null;
-      }
-      if (propertyMapping.isCompositeResult()
+      String column = column(columnPrefix, propertyMapping);
+	if (propertyMapping.isCompositeResult()
           || (column != null && mappedColumnNames.contains(column.toUpperCase(Locale.ENGLISH)))
           || propertyMapping.getResultSet() != null) {
         Object value = getPropertyMappingValue(rsw.getResultSet(), metaObject, propertyMapping, lazyLoader, columnPrefix);
@@ -499,6 +495,14 @@ private static final Object DEFERRED = new Object();
     return foundValues;
   }
 
+private String column(String columnPrefix, ResultMapping propertyMapping) {
+	String column = prependPrefix(propertyMapping.getColumn(), columnPrefix);
+	if (propertyMapping.getNestedResultMapId() != null) {
+		column = null;
+	}
+	return column;
+}
+
   private Object getPropertyMappingValue(ResultSet rs, MetaObject metaResultObject, ResultMapping propertyMapping, ResultLoaderMap lazyLoader, String columnPrefix)
       throws SQLException {
     if (propertyMapping.getNestedQueryId() != null) {
@@ -520,12 +524,11 @@ private static final Object DEFERRED = new Object();
       autoMapping = new ArrayList<>();
       final List<String> unmappedColumnNames = rsw.getUnmappedColumnNames(resultMap, columnPrefix);
       for (String columnName : unmappedColumnNames) {
-        String propertyName = columnName;
-        if (columnPrefix != null && !columnPrefix.isEmpty()) {
+        String propertyName = propertyName(columnPrefix, columnName);
+		if (columnPrefix != null && !columnPrefix.isEmpty()) {
           // When columnPrefix is specified,
           // ignore columns without the prefix.
           if (columnName.toUpperCase(Locale.ENGLISH).startsWith(columnPrefix)) {
-            propertyName = columnName.substring(columnPrefix.length());
           } else {
             continue;
           }
@@ -552,6 +555,17 @@ private static final Object DEFERRED = new Object();
     }
     return autoMapping;
   }
+
+private String propertyName(String columnPrefix, String columnName) {
+	String propertyName = columnName;
+	if (columnPrefix != null && !columnPrefix.isEmpty()) {
+		if (columnName.toUpperCase(Locale.ENGLISH).startsWith(columnPrefix)) {
+			propertyName = columnName.substring(columnPrefix.length());
+		} else {
+		}
+	}
+	return propertyName;
+}
 
   private boolean applyAutomaticMappings(ResultSetWrapper rsw, ResultMap resultMap, MetaObject metaObject, String columnPrefix) throws SQLException {
     List<UnMappedColumnAutoMapping> autoMapping = createAutomaticMappings(rsw, resultMap, metaObject, columnPrefix);
@@ -729,6 +743,17 @@ private static final Object DEFERRED = new Object();
   }
 
 
+private String columnName(ResultSetWrapper rsw, ResultMap resultMap, String columnPrefix) {
+	final String columnName;
+	if (!resultMap.getResultMappings().isEmpty()) {
+		final List<ResultMapping> resultMappingList = resultMap.getResultMappings();
+		final ResultMapping mapping = resultMappingList.get(0);
+		columnName = prependPrefix(mapping.getColumn(), columnPrefix);
+	} else {
+		columnName = rsw.getColumnNames().get(0);
+	}
+	return columnName;
+}
 
   //
   // NESTED QUERY
@@ -766,8 +791,9 @@ private static final Object DEFERRED = new Object();
         executor.deferLoad(nestedQuery, metaResultObject, property, key, targetType);
         value = DEFERRED;
       } else {
-        final ResultLoader resultLoader = new ResultLoader(configuration, executor, nestedQuery, nestedQueryParameterObject, targetType, key, nestedBoundSql);
-        if (propertyMapping.isLazy()) {
+        ResultLoader resultLoader = resultLoader(propertyMapping, nestedQuery, nestedQueryParameterObject, value,
+				nestedBoundSql, key, targetType);
+		if (propertyMapping.isLazy()) {
           lazyLoader.addLoader(property, metaResultObject, resultLoader);
           value = DEFERRED;
         } else {
@@ -777,6 +803,18 @@ private static final Object DEFERRED = new Object();
     }
     return value;
   }
+
+private ResultLoader resultLoader(ResultMapping propertyMapping, final MappedStatement nestedQuery,
+		final Object nestedQueryParameterObject, Object value, final BoundSql nestedBoundSql, final CacheKey key,
+		final Class<?> targetType) throws SQLException {
+	final ResultLoader resultLoader = new ResultLoader(configuration, executor, nestedQuery, nestedQueryParameterObject,
+			targetType, key, nestedBoundSql);
+	if (propertyMapping.isLazy()) {
+	} else {
+		value = resultLoader.loadResult();
+	}
+	return resultLoader;
+}
 
   private Object prepareParameterForNestedQuery(ResultSet rs, ResultMapping resultMapping, Class<?> parameterType, String columnPrefix) throws SQLException {
     if (resultMapping.isCompositeResult()) {
@@ -1073,11 +1111,8 @@ private void cacheKey(ResultSetWrapper rsw, CacheKey cacheKey, String columnPref
     final String propertyName = resultMapping.getProperty();
     Object propertyValue = metaObject.getValue(propertyName);
     if (propertyValue == null) {
-      Class<?> type = resultMapping.getJavaType();
-      if (type == null) {
-        type = metaObject.getSetterType(propertyName);
-      }
-      try {
+      Class<?> type = type(resultMapping, metaObject, propertyName);
+	try {
         if (objectFactory.isCollection(type)) {
           propertyValue = objectFactory.create(type);
           metaObject.setValue(propertyName, propertyValue);

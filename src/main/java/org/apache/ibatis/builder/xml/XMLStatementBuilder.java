@@ -101,12 +101,8 @@ public class XMLStatementBuilder extends BaseBuilder {
     String resultType = context.getStringAttribute("resultType");
     Class<?> resultTypeClass = resolveClass(resultType);
     String resultMap = context.getStringAttribute("resultMap");
-    String resultSetType = context.getStringAttribute("resultSetType");
-    ResultSetType resultSetTypeEnum = resolveResultSetType(resultSetType);
-    if (resultSetTypeEnum == null) {
-      resultSetTypeEnum = configuration.getDefaultResultSetType();
-    }
-    String keyProperty = context.getStringAttribute("keyProperty");
+    ResultSetType resultSetTypeEnum = resultSetTypeEnum();
+	String keyProperty = context.getStringAttribute("keyProperty");
     String keyColumn = context.getStringAttribute("keyColumn");
     String resultSets = context.getStringAttribute("resultSets");
 
@@ -115,6 +111,15 @@ public class XMLStatementBuilder extends BaseBuilder {
         resultSetTypeEnum, flushCache, useCache, resultOrdered,
         keyGenerator, keyProperty, keyColumn, databaseId, langDriver, resultSets);
   }
+
+private ResultSetType resultSetTypeEnum() {
+	String resultSetType = context.getStringAttribute("resultSetType");
+	ResultSetType resultSetTypeEnum = resolveResultSetType(resultSetType);
+	if (resultSetTypeEnum == null) {
+		resultSetTypeEnum = configuration.getDefaultResultSetType();
+	}
+	return resultSetTypeEnum;
+}
 
   private void processSelectKeyNodes(String id, Class<?> parameterTypeClass, LanguageDriver langDriver) {
     List<XNode> selectKeyNodes = context.evalNodes("selectKey");

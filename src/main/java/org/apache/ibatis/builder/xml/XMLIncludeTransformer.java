@@ -116,23 +116,8 @@ public class XMLIncludeTransformer {
    * @return variables context from include instance (no inherited values)
    */
   private Properties getVariablesContext(Node node, Properties inheritedVariablesContext) {
-    Map<String, String> declaredProperties = null;
-    NodeList children = node.getChildNodes();
-    for (int i = 0; i < children.getLength(); i++) {
-      Node n = children.item(i);
-      if (n.getNodeType() == Node.ELEMENT_NODE) {
-        String name = getStringAttribute(n, "name");
-        // Replace variables inside
-        String value = PropertyParser.parse(getStringAttribute(n, "value"), inheritedVariablesContext);
-        if (declaredProperties == null) {
-          declaredProperties = new HashMap<>();
-        }
-        if (declaredProperties.put(name, value) != null) {
-          throw new BuilderException("Variable " + name + " defined twice in the same include definition");
-        }
-      }
-    }
-    if (declaredProperties == null) {
+    Map<String, String> declaredProperties = declaredProperties(node, inheritedVariablesContext);
+	if (declaredProperties == null) {
       return inheritedVariablesContext;
     } else {
       Properties newProperties = new Properties();
@@ -141,4 +126,24 @@ public class XMLIncludeTransformer {
       return newProperties;
     }
   }
+
+private Map<String, String> declaredProperties(Node node, Properties inheritedVariablesContext)
+		throws BuilderException {
+	Map<String, String> declaredProperties = null;
+	NodeList children = node.getChildNodes();
+	for (int i = 0; i < children.getLength(); i++) {
+		Node n = children.item(i);
+		if (n.getNodeType() == Node.ELEMENT_NODE) {
+			String name = getStringAttribute(n, "name");
+			String value = PropertyParser.parse(getStringAttribute(n, "value"), inheritedVariablesContext);
+			if (declaredProperties == null) {
+				declaredProperties = new HashMap<>();
+			}
+			if (declaredProperties.put(name, value) != null) {
+				throw new BuilderException("Variable " + name + " defined twice in the same include definition");
+			}
+		}
+	}
+	return declaredProperties;
+}
 }
