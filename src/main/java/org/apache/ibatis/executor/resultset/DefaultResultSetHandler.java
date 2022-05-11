@@ -1126,5 +1126,12 @@ private void cacheKey(ResultSetWrapper rsw, CacheKey cacheKey, String columnPref
     }
     return null;
   }
+  private Class<?> type(ResultMapping resultMapping, MetaObject metaObject, final String propertyName) {
+		Class<?> type = resultMapping.getJavaType();
+		if (type == null) {
+			type = metaObject.getSetterType(propertyName);
+		}
+		return type;
+	}
 
 }

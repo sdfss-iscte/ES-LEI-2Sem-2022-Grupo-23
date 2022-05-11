@@ -106,7 +106,8 @@ public class ResultLoaderMap {
    */
   public static class LoadPair implements Serializable {
 
-    private static final long serialVersionUID = 20130412;
+    private transient LoadPairProduct loadPairProduct = new LoadPairProduct();
+	private static final long serialVersionUID = 20130412;
     /**
      * Name of factory method which returns database connection.
      */
@@ -115,14 +116,6 @@ public class ResultLoaderMap {
      * Object to check whether we went through serialization..
      */
     private final transient Object serializationCheck = new Object();
-    /**
-     * Meta object which sets loaded properties.
-     */
-    private transient MetaObject metaResultObject;
-    /**
-     * Result loader which loads unread properties.
-     */
-    private transient ResultLoader resultLoader;
     /**
      * Wow, logger.
      */
@@ -146,8 +139,8 @@ public class ResultLoaderMap {
 
     private LoadPair(final String property, MetaObject metaResultObject, ResultLoader resultLoader) {
       this.property = property;
-      this.metaResultObject = metaResultObject;
-      this.resultLoader = resultLoader;
+      loadPairProduct.setMetaResultObject(metaResultObject);
+      loadPairProduct.setResultLoader(resultLoader);
 
       /* Save required information only if original object can be serialized. */
       if (metaResultObject != null && metaResultObject.getOriginalObject() instanceof Serializable) {
@@ -172,20 +165,11 @@ public class ResultLoaderMap {
     }
 
     public void load() throws SQLException {
-      /* These field should not be null unless the loadpair was serialized.
-       * Yet in that case this method should not be called. */
-      if (this.metaResultObject == null) {
-        throw new IllegalArgumentException("metaResultObject is null");
-      }
-      if (this.resultLoader == null) {
-        throw new IllegalArgumentException("resultLoader is null");
-      }
-
-      this.load(null);
+      loadPairProduct.load(this);
     }
 
     public void load(final Object userObject) throws SQLException {
-      if (this.metaResultObject == null || this.resultLoader == null) {
+      if (this.loadPairProduct.getMetaResultObject() == null || this.loadPairProduct.getResultLoader() == null) {
         if (this.mappedParameter == null) {
           throw new ExecutorException("Property [" + this.property + "] cannot be loaded because "
                   + "required parameter of mapped statement ["
@@ -201,9 +185,9 @@ public class ResultLoaderMap {
                   + this.mappedStatement + "]");
         }
 
-        this.metaResultObject = config.newMetaObject(userObject);
-        this.resultLoader = new ResultLoader(config, new ClosedExecutor(), ms, this.mappedParameter,
-                metaResultObject.getSetterType(this.property), null, null);
+        loadPairProduct.setMetaResultObject(config.newMetaObject(userObject));
+        loadPairProduct.setResultLoader(new ResultLoader(config, new ClosedExecutor(), ms, this.mappedParameter,
+				loadPairProduct.getMetaResultObject().getSetterType(this.property), null, null));
       }
 
       /* We are using a new executor because we may be (and likely are) on a new thread
@@ -211,12 +195,12 @@ public class ResultLoaderMap {
        *
        * A better approach would be making executors thread safe. */
       if (this.serializationCheck == null) {
-        final ResultLoader old = this.resultLoader;
-        this.resultLoader = new ResultLoader(old.configuration, new ClosedExecutor(), old.mappedStatement,
-                old.parameterObject, old.targetType, old.cacheKey, old.boundSql);
+        final ResultLoader old = this.loadPairProduct.getResultLoader();
+        loadPairProduct.setResultLoader(new ResultLoader(old.configuration, new ClosedExecutor(), old.mappedStatement,
+				old.parameterObject, old.targetType, old.cacheKey, old.boundSql));
       }
 
-      this.metaResultObject.setValue(property, this.resultLoader.loadResult());
+      this.loadPairProduct.getMetaResultObject().setValue(property, this.loadPairProduct.getResultLoader().loadResult());
     }
 
     private Configuration getConfiguration() {
@@ -277,6 +261,17 @@ public class ResultLoaderMap {
       }
       return this.log;
     }
+
+	private void readObject(java.io.ObjectInputStream stream)
+			throws java.io.IOException, java.lang.ClassNotFoundException {
+		stream.defaultReadObject();
+		this.loadPairProduct = (LoadPairProduct) stream.readObject();
+	}
+
+	private void writeObject(java.io.ObjectOutputStream stream) throws java.io.IOException {
+		stream.defaultWriteObject();
+		stream.writeObject(this.loadPairProduct);
+	}
   }
 
   private static final class ClosedExecutor extends BaseExecutor {
