@@ -1,5 +1,5 @@
 /*
- *    Copyright 2009-2021 the original author or authors.
+ *    Copyright 2009-2022 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -140,13 +140,8 @@ public class DefaultVFS extends VFS {
           }
         }
 
-        // The URL prefix to use when recursively listing child resources
-        String prefix = url.toExternalForm();
-        if (!prefix.endsWith("/")) {
-          prefix = prefix + "/";
-        }
-
-        // Iterate over immediate children, adding files and recurring into directories
+        String prefix = prefix(url);
+		// Iterate over immediate children, adding files and recurring into directories
         for (String child : children) {
           String resourcePath = path + "/" + child;
           resources.add(resourcePath);
@@ -167,6 +162,14 @@ public class DefaultVFS extends VFS {
     }
   }
 
+private String prefix(URL url) {
+	String prefix = url.toExternalForm();
+	if (!prefix.endsWith("/")) {
+		prefix = prefix + "/";
+	}
+	return prefix;
+}
+
   /**
    * List the names of the entries in the given {@link JarInputStream} that begin with the
    * specified {@code path}. Entries will match with or without a leading slash.
@@ -177,15 +180,8 @@ public class DefaultVFS extends VFS {
    * @throws IOException If I/O errors occur
    */
   protected List<String> listResources(JarInputStream jar, String path) throws IOException {
-    // Include the leading and trailing slash when matching names
-    if (!path.startsWith("/")) {
-      path = "/" + path;
-    }
-    if (!path.endsWith("/")) {
-      path = path + "/";
-    }
-
-    // Iterate over the entries and collect those that begin with the requested path
+    path = path(path);
+	// Iterate over the entries and collect those that begin with the requested path
     List<String> resources = new ArrayList<>();
     for (JarEntry entry; (entry = jar.getNextJarEntry()) != null;) {
       if (!entry.isDirectory()) {
@@ -207,6 +203,16 @@ public class DefaultVFS extends VFS {
     }
     return resources;
   }
+
+private String path(String path) {
+	if (!path.startsWith("/")) {
+		path = "/" + path;
+	}
+	if (!path.endsWith("/")) {
+		path = path + "/";
+	}
+	return path;
+}
 
   /**
    * Attempts to deconstruct the given URL to find a JAR file containing the resource referenced

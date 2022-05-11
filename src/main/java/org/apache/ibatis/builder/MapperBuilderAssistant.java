@@ -1,5 +1,5 @@
 /*
- *    Copyright 2009-2021 the original author or authors.
+ *    Copyright 2009-2022 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -54,8 +54,8 @@ import org.apache.ibatis.type.TypeHandler;
  */
 public class MapperBuilderAssistant extends BaseBuilder {
 
-  private String currentNamespace;
-  private final String resource;
+  private MapperBuilderAssistantProduct mapperBuilderAssistantProduct = new MapperBuilderAssistantProduct();
+private final String resource;
   private Cache currentCache;
   private boolean unresolvedCacheRef; // issue #676
 
@@ -66,41 +66,15 @@ public class MapperBuilderAssistant extends BaseBuilder {
   }
 
   public String getCurrentNamespace() {
-    return currentNamespace;
+    return mapperBuilderAssistantProduct.getCurrentNamespace();
   }
 
   public void setCurrentNamespace(String currentNamespace) {
-    if (currentNamespace == null) {
-      throw new BuilderException("The mapper element requires a namespace attribute to be specified.");
-    }
-
-    if (this.currentNamespace != null && !this.currentNamespace.equals(currentNamespace)) {
-      throw new BuilderException("Wrong namespace. Expected '"
-          + this.currentNamespace + "' but found '" + currentNamespace + "'.");
-    }
-
-    this.currentNamespace = currentNamespace;
+    mapperBuilderAssistantProduct.setCurrentNamespace(currentNamespace);
   }
 
   public String applyCurrentNamespace(String base, boolean isReference) {
-    if (base == null) {
-      return null;
-    }
-    if (isReference) {
-      // is it qualified with any namespace yet?
-      if (base.contains(".")) {
-        return base;
-      }
-    } else {
-      // is it qualified with this namespace yet?
-      if (base.startsWith(currentNamespace + ".")) {
-        return base;
-      }
-      if (base.contains(".")) {
-        throw new BuilderException("Dots are not allowed in element names, please remove it from " + base);
-      }
-    }
-    return currentNamespace + "." + base;
+    return mapperBuilderAssistantProduct.applyCurrentNamespace(base, isReference);
   }
 
   public Cache useCacheRef(String namespace) {
@@ -128,7 +102,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
       boolean readWrite,
       boolean blocking,
       Properties props) {
-    Cache cache = new CacheBuilder(currentNamespace)
+    Cache cache = new CacheBuilder(mapperBuilderAssistantProduct.getCurrentNamespace())
         .implementation(valueOrDefault(typeClass, PerpetualCache.class))
         .addDecorator(valueOrDefault(evictionClass, LruCache.class))
         .clearInterval(flushInterval)
@@ -143,7 +117,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
   }
 
   public ParameterMap addParameterMap(String id, Class<?> parameterClass, List<ParameterMapping> parameterMappings) {
-    id = applyCurrentNamespace(id, false);
+    id = mapperBuilderAssistantProduct.applyCurrentNamespace(id, false);
     ParameterMap parameterMap = new ParameterMap.Builder(configuration, id, parameterClass, parameterMappings).build();
     configuration.addParameterMap(parameterMap);
     return parameterMap;
@@ -158,7 +132,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
       ParameterMode parameterMode,
       Class<? extends TypeHandler<?>> typeHandler,
       Integer numericScale) {
-    resultMap = applyCurrentNamespace(resultMap, true);
+    resultMap = mapperBuilderAssistantProduct.applyCurrentNamespace(resultMap, true);
 
     // Class parameterType = parameterMapBuilder.type();
     Class<?> javaTypeClass = resolveParameterJavaType(parameterType, property, javaType, jdbcType);
@@ -180,8 +154,8 @@ public class MapperBuilderAssistant extends BaseBuilder {
       Discriminator discriminator,
       List<ResultMapping> resultMappings,
       Boolean autoMapping) {
-    id = applyCurrentNamespace(id, false);
-    extend = applyCurrentNamespace(extend, true);
+    id = mapperBuilderAssistantProduct.applyCurrentNamespace(id, false);
+    extend = mapperBuilderAssistantProduct.applyCurrentNamespace(extend, true);
 
     if (extend != null) {
       if (!configuration.hasResultMap(extend)) {
@@ -192,22 +166,27 @@ public class MapperBuilderAssistant extends BaseBuilder {
       extendedResultMappings.removeAll(resultMappings);
       // Remove parent constructor if this resultMap declares a constructor.
       boolean declaresConstructor = false;
-      for (ResultMapping resultMapping : resultMappings) {
-        if (resultMapping.getFlags().contains(ResultFlag.CONSTRUCTOR)) {
-          declaresConstructor = true;
-          break;
-        }
-      }
-      if (declaresConstructor) {
-        extendedResultMappings.removeIf(resultMapping -> resultMapping.getFlags().contains(ResultFlag.CONSTRUCTOR));
-      }
-      resultMappings.addAll(extendedResultMappings);
+      resultMappings(resultMappings, extendedResultMappings, declaresConstructor);
     }
     ResultMap resultMap = new ResultMap.Builder(configuration, id, type, resultMappings, autoMapping)
         .discriminator(discriminator)
         .build();
     configuration.addResultMap(resultMap);
     return resultMap;
+  }
+
+  private void resultMappings(List<ResultMapping> resultMappings, List<ResultMapping> extendedResultMappings,
+	  boolean declaresConstructor) {
+      for (ResultMapping resultMapping : resultMappings) {
+	  if (resultMapping.getFlags().contains(ResultFlag.CONSTRUCTOR)) {
+	      declaresConstructor = true;
+	      break;
+	  }
+      }
+      if (declaresConstructor) {
+	  extendedResultMappings.removeIf(resultMapping -> resultMapping.getFlags().contains(ResultFlag.CONSTRUCTOR));
+      }
+      resultMappings.addAll(extendedResultMappings);
   }
 
   public Discriminator buildDiscriminator(
@@ -235,7 +214,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
     Map<String, String> namespaceDiscriminatorMap = new HashMap<>();
     for (Map.Entry<String, String> e : discriminatorMap.entrySet()) {
       String resultMap = e.getValue();
-      resultMap = applyCurrentNamespace(resultMap, true);
+      resultMap = mapperBuilderAssistantProduct.applyCurrentNamespace(resultMap, true);
       namespaceDiscriminatorMap.put(e.getKey(), resultMap);
     }
     return new Discriminator.Builder(configuration, resultMapping, namespaceDiscriminatorMap).build();
@@ -267,7 +246,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
       throw new IncompleteElementException("Cache-ref not yet resolved");
     }
 
-    id = applyCurrentNamespace(id, false);
+    id = mapperBuilderAssistantProduct.applyCurrentNamespace(id, false);
     boolean isSelect = sqlCommandType == SqlCommandType.SELECT;
 
     MappedStatement.Builder statementBuilder = new MappedStatement.Builder(configuration, id, sqlSource, sqlCommandType)
@@ -361,7 +340,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
       String parameterMapName,
       Class<?> parameterTypeClass,
       String statementId) {
-    parameterMapName = applyCurrentNamespace(parameterMapName, true);
+    parameterMapName = mapperBuilderAssistantProduct.applyCurrentNamespace(parameterMapName, true);
     ParameterMap parameterMap = null;
     if (parameterMapName != null) {
       try {
@@ -384,7 +363,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
       String resultMap,
       Class<?> resultType,
       String statementId) {
-    resultMap = applyCurrentNamespace(resultMap, true);
+    resultMap = mapperBuilderAssistantProduct.applyCurrentNamespace(resultMap, true);
 
     List<ResultMap> resultMaps = new ArrayList<>();
     if (resultMap != null) {
@@ -425,16 +404,11 @@ public class MapperBuilderAssistant extends BaseBuilder {
       boolean lazy) {
     Class<?> javaTypeClass = resolveResultJavaType(resultType, property, javaType);
     TypeHandler<?> typeHandlerInstance = resolveTypeHandler(javaTypeClass, typeHandler);
-    List<ResultMapping> composites;
-    if ((nestedSelect == null || nestedSelect.isEmpty()) && (foreignColumn == null || foreignColumn.isEmpty())) {
-      composites = Collections.emptyList();
-    } else {
-      composites = parseCompositeColumnName(column);
-    }
+    List<ResultMapping> composites = composites(column, nestedSelect, foreignColumn);
     return new ResultMapping.Builder(configuration, property, column, javaTypeClass)
         .jdbcType(jdbcType)
-        .nestedQueryId(applyCurrentNamespace(nestedSelect, true))
-        .nestedResultMapId(applyCurrentNamespace(nestedResultMap, true))
+        .nestedQueryId(mapperBuilderAssistantProduct.applyCurrentNamespace(nestedSelect, true))
+        .nestedResultMapId(mapperBuilderAssistantProduct.applyCurrentNamespace(nestedResultMap, true))
         .resultSet(resultSet)
         .typeHandler(typeHandlerInstance)
         .flags(flags == null ? new ArrayList<>() : flags)
@@ -444,6 +418,16 @@ public class MapperBuilderAssistant extends BaseBuilder {
         .foreignColumn(foreignColumn)
         .lazy(lazy)
         .build();
+  }
+
+  private List<ResultMapping> composites(String column, String nestedSelect, String foreignColumn) {
+      List<ResultMapping> composites;
+      if ((nestedSelect == null || nestedSelect.isEmpty()) && (foreignColumn == null || foreignColumn.isEmpty())) {
+	  composites = Collections.emptyList();
+      } else {
+	  composites = parseCompositeColumnName(column);
+      }
+      return composites;
   }
 
   /**

@@ -1,5 +1,5 @@
 /*
- *    Copyright 2009-2021 the original author or authors.
+ *    Copyright 2009-2022 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -68,29 +68,15 @@ public class Jdbc3KeyGenerator implements KeyGenerator {
 
   @Override
   public void processAfter(Executor executor, MappedStatement ms, Statement stmt, Object parameter) {
-    processBatch(ms, stmt, parameter);
+    ms.processBatch(stmt, parameter, this);
   }
 
   public void processBatch(MappedStatement ms, Statement stmt, Object parameter) {
-    final String[] keyProperties = ms.getKeyProperties();
-    if (keyProperties == null || keyProperties.length == 0) {
-      return;
-    }
-    try (ResultSet rs = stmt.getGeneratedKeys()) {
-      final ResultSetMetaData rsmd = rs.getMetaData();
-      final Configuration configuration = ms.getConfiguration();
-      if (rsmd.getColumnCount() < keyProperties.length) {
-        // Error?
-      } else {
-        assignKeys(configuration, rs, rsmd, keyProperties, parameter);
-      }
-    } catch (Exception e) {
-      throw new ExecutorException("Error getting generated key or setting result to parameter object. Cause: " + e, e);
-    }
+    ms.processBatch(stmt, parameter, this);
   }
 
   @SuppressWarnings("unchecked")
-  private void assignKeys(Configuration configuration, ResultSet rs, ResultSetMetaData rsmd, String[] keyProperties,
+  public void assignKeys(Configuration configuration, ResultSet rs, ResultSetMetaData rsmd, String[] keyProperties,
       Object parameter) throws SQLException {
     if (parameter instanceof ParamMap || parameter instanceof StrictMap) {
       // Multi-param or single param with @Param

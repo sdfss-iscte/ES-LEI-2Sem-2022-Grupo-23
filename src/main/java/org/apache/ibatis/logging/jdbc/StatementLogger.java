@@ -1,5 +1,5 @@
 /*
- *    Copyright 2009-2021 the original author or authors.
+ *    Copyright 2009-2022 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -47,10 +47,8 @@ public final class StatementLogger extends BaseJdbcLogger implements InvocationH
         return method.invoke(this, params);
       }
       if (EXECUTE_METHODS.contains(method.getName())) {
-        if (isDebugEnabled()) {
-          debug(" Executing: " + removeExtraWhitespace((String) params[0]), true);
-        }
-        if ("executeQuery".equals(method.getName())) {
+        statementLog(params);
+		if ("executeQuery".equals(method.getName())) {
           ResultSet rs = (ResultSet) method.invoke(statement, params);
           return rs == null ? null : ResultSetLogger.newInstance(rs, statementLog, queryStack);
         } else {
@@ -66,6 +64,12 @@ public final class StatementLogger extends BaseJdbcLogger implements InvocationH
       throw ExceptionUtil.unwrapThrowable(t);
     }
   }
+
+private void statementLog(Object[] params) {
+	if (isDebugEnabled()) {
+		debug(" Executing: " + removeExtraWhitespace((String) params[0]), true);
+	}
+}
 
   /**
    * Creates a logging version of a Statement.

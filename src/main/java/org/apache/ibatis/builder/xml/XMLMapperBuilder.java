@@ -1,5 +1,5 @@
 /*
- *    Copyright 2009-2021 the original author or authors.
+ *    Copyright 2009-2022 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -256,15 +256,8 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private ResultMap resultMapElement(XNode resultMapNode, List<ResultMapping> additionalResultMappings, Class<?> enclosingType) {
     ErrorContext.instance().activity("processing " + resultMapNode.getValueBasedIdentifier());
-    String type = resultMapNode.getStringAttribute("type",
-        resultMapNode.getStringAttribute("ofType",
-            resultMapNode.getStringAttribute("resultType",
-                resultMapNode.getStringAttribute("javaType"))));
-    Class<?> typeClass = resolveClass(type);
-    if (typeClass == null) {
-      typeClass = inheritEnclosingType(resultMapNode, enclosingType);
-    }
-    Discriminator discriminator = null;
+    Class<?> typeClass = resultMapElementAux(resultMapNode, enclosingType);
+	Discriminator discriminator = null;
     List<ResultMapping> resultMappings = new ArrayList<>(additionalResultMappings);
     List<XNode> resultChildren = resultMapNode.getChildren();
     for (XNode resultChild : resultChildren) {
@@ -292,6 +285,16 @@ public class XMLMapperBuilder extends BaseBuilder {
       throw e;
     }
   }
+
+private Class<?> resultMapElementAux(XNode resultMapNode, Class<?> enclosingType) {
+	String type = resultMapNode.getStringAttribute("type", resultMapNode.getStringAttribute("ofType",
+			resultMapNode.getStringAttribute("resultType", resultMapNode.getStringAttribute("javaType"))));
+	Class<?> typeClass = resolveClass(type);
+	if (typeClass == null) {
+		typeClass = inheritEnclosingType(resultMapNode, enclosingType);
+	}
+	return typeClass;
+}
 
   protected Class<?> inheritEnclosingType(XNode resultMapNode, Class<?> enclosingType) {
     if ("association".equals(resultMapNode.getName()) && resultMapNode.getStringAttribute("resultMap") == null) {
@@ -369,13 +372,8 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   private ResultMapping buildResultMappingFromContext(XNode context, Class<?> resultType, List<ResultFlag> flags) {
-    String property;
-    if (flags.contains(ResultFlag.CONSTRUCTOR)) {
-      property = context.getStringAttribute("name");
-    } else {
-      property = context.getStringAttribute("property");
-    }
-    String column = context.getStringAttribute("column");
+    String property = property(context, flags);
+	String column = context.getStringAttribute("column");
     String javaType = context.getStringAttribute("javaType");
     String jdbcType = context.getStringAttribute("jdbcType");
     String nestedSelect = context.getStringAttribute("select");
@@ -392,6 +390,16 @@ public class XMLMapperBuilder extends BaseBuilder {
     JdbcType jdbcTypeEnum = resolveJdbcType(jdbcType);
     return builderAssistant.buildResultMapping(resultType, property, column, javaTypeClass, jdbcTypeEnum, nestedSelect, nestedResultMap, notNullColumn, columnPrefix, typeHandlerClass, flags, resultSet, foreignColumn, lazy);
   }
+
+private String property(XNode context, List<ResultFlag> flags) {
+	String property;
+	if (flags.contains(ResultFlag.CONSTRUCTOR)) {
+		property = context.getStringAttribute("name");
+	} else {
+		property = context.getStringAttribute("property");
+	}
+	return property;
+}
 
   private String processNestedResultMappings(XNode context, List<ResultMapping> resultMappings, Class<?> enclosingType) {
     if (Arrays.asList("association", "collection", "case").contains(context.getName())
