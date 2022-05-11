@@ -377,8 +377,8 @@ public class PooledDataSource implements DataSource {
     synchronized (state) {
       state.activeConnections.remove(conn);
       if (conn.isValid()) {
-        if (state.idleConnections.size() < poolMaximumIdleConnections && conn.getConnectionTypeCode() == expectedConnectionTypeCode) {
-          state.accumulatedCheckoutTime += conn.getCheckoutTime();
+        conn(conn);
+		if (state.idleConnections.size() < poolMaximumIdleConnections && conn.getConnectionTypeCode() == expectedConnectionTypeCode) {
           if (!conn.getRealConnection().getAutoCommit()) {
             conn.getRealConnection().rollback();
           }
@@ -386,13 +386,11 @@ public class PooledDataSource implements DataSource {
           state.idleConnections.add(newConn);
           newConn.setCreatedTimestamp(conn.getCreatedTimestamp());
           newConn.setLastUsedTimestamp(conn.getLastUsedTimestamp());
-          conn.invalidate();
           if (log.isDebugEnabled()) {
             log.debug("Returned connection " + newConn.getRealHashCode() + " to pool.");
           }
           state.notifyAll();
         } else {
-          state.accumulatedCheckoutTime += conn.getCheckoutTime();
           if (!conn.getRealConnection().getAutoCommit()) {
             conn.getRealConnection().rollback();
           }
@@ -400,7 +398,6 @@ public class PooledDataSource implements DataSource {
           if (log.isDebugEnabled()) {
             log.debug("Closed connection " + conn.getRealHashCode() + ".");
           }
-          conn.invalidate();
         }
       } else {
         if (log.isDebugEnabled()) {
@@ -410,6 +407,17 @@ public class PooledDataSource implements DataSource {
       }
     }
   }
+
+private void conn(PooledConnection conn) {
+	if (state.idleConnections.size() < poolMaximumIdleConnections
+			&& conn.getConnectionTypeCode() == expectedConnectionTypeCode) {
+		state.accumulatedCheckoutTime += conn.getCheckoutTime();
+		conn.invalidate();
+	} else {
+		state.accumulatedCheckoutTime += conn.getCheckoutTime();
+		conn.invalidate();
+	}
+}
 
   private PooledConnection popConnection(String username, String password) throws SQLException {
     boolean countedWait = false;
@@ -533,7 +541,8 @@ public class PooledDataSource implements DataSource {
    * @return True if the connection is still usable
    */
   protected boolean pingConnection(PooledConnection conn) {
-    boolean result = true;
+    log(conn);
+	boolean result = true;
 
     try {
       result = !conn.getRealConnection().isClosed();
@@ -547,9 +556,6 @@ public class PooledDataSource implements DataSource {
     if (result && poolPingEnabled && poolPingConnectionsNotUsedFor >= 0
         && conn.getTimeElapsedSinceLastUse() > poolPingConnectionsNotUsedFor) {
       try {
-        if (log.isDebugEnabled()) {
-          log.debug("Testing connection " + conn.getRealHashCode() + " ...");
-        }
         Connection realConn = conn.getRealConnection();
         try (Statement statement = realConn.createStatement()) {
           statement.executeQuery(poolPingQuery).close();
@@ -558,9 +564,6 @@ public class PooledDataSource implements DataSource {
           realConn.rollback();
         }
         result = true;
-        if (log.isDebugEnabled()) {
-          log.debug("Connection " + conn.getRealHashCode() + " is GOOD!");
-        }
       } catch (Exception e) {
         log.warn("Execution of ping query '" + poolPingQuery + "' failed: " + e.getMessage());
         try {
@@ -576,6 +579,27 @@ public class PooledDataSource implements DataSource {
     }
     return result;
   }
+
+private void log(PooledConnection conn) {
+	boolean result = true;
+	try {
+		result = !conn.getRealConnection().isClosed();
+	} catch (SQLException e) {
+		if (log.isDebugEnabled()) {
+			log.debug("Connection " + conn.getRealHashCode() + " is BAD: " + e.getMessage());
+		}
+		result = false;
+	}
+	if (result && poolPingEnabled && poolPingConnectionsNotUsedFor >= 0
+			&& conn.getTimeElapsedSinceLastUse() > poolPingConnectionsNotUsedFor) {
+		if (log.isDebugEnabled()) {
+			log.debug("Testing connection " + conn.getRealHashCode() + " ...");
+		}
+		if (log.isDebugEnabled()) {
+			log.debug("Connection " + conn.getRealHashCode() + " is GOOD!");
+		}
+	}
+}
 
   /**
    * Unwraps a pooled connection to get to the 'real' connection
