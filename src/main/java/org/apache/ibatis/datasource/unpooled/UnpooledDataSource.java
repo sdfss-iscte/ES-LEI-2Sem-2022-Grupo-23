@@ -38,7 +38,8 @@ import org.apache.ibatis.io.Resources;
  */
 public class UnpooledDataSource implements DataSource {
 
-  private ClassLoader driverClassLoader;
+  private UnpooledDataSourceProduct unpooledDataSourceProduct = new UnpooledDataSourceProduct();
+private ClassLoader driverClassLoader;
   private Properties driverProperties;
   private static Map<String, Driver> registeredDrivers = new ConcurrentHashMap<>();
 
@@ -46,10 +47,6 @@ public class UnpooledDataSource implements DataSource {
   private String url;
   private String username;
   private String password;
-
-  private Boolean autoCommit;
-  private Integer defaultTransactionIsolationLevel;
-  private Integer defaultNetworkTimeout;
 
   static {
     Enumeration<Driver> drivers = DriverManager.getDrivers();
@@ -169,19 +166,19 @@ public class UnpooledDataSource implements DataSource {
   }
 
   public Boolean isAutoCommit() {
-    return autoCommit;
+    return unpooledDataSourceProduct.getAutoCommit();
   }
 
   public void setAutoCommit(Boolean autoCommit) {
-    this.autoCommit = autoCommit;
+    unpooledDataSourceProduct.setAutoCommit(autoCommit);
   }
 
   public Integer getDefaultTransactionIsolationLevel() {
-    return defaultTransactionIsolationLevel;
+    return unpooledDataSourceProduct.getDefaultTransactionIsolationLevel();
   }
 
   public void setDefaultTransactionIsolationLevel(Integer defaultTransactionIsolationLevel) {
-    this.defaultTransactionIsolationLevel = defaultTransactionIsolationLevel;
+    unpooledDataSourceProduct.setDefaultTransactionIsolationLevel(defaultTransactionIsolationLevel);
   }
 
   /**
@@ -191,7 +188,7 @@ public class UnpooledDataSource implements DataSource {
    * @since 3.5.2
    */
   public Integer getDefaultNetworkTimeout() {
-    return defaultNetworkTimeout;
+    return unpooledDataSourceProduct.getDefaultNetworkTimeout();
   }
 
   /**
@@ -202,7 +199,7 @@ public class UnpooledDataSource implements DataSource {
    * @since 3.5.2
    */
   public void setDefaultNetworkTimeout(Integer defaultNetworkTimeout) {
-    this.defaultNetworkTimeout = defaultNetworkTimeout;
+    unpooledDataSourceProduct.setDefaultNetworkTimeout(defaultNetworkTimeout);
   }
 
   private Connection doGetConnection(String username, String password) throws SQLException {
@@ -222,7 +219,7 @@ public class UnpooledDataSource implements DataSource {
   private Connection doGetConnection(Properties properties) throws SQLException {
     initializeDriver();
     Connection connection = DriverManager.getConnection(url, properties);
-    configureConnection(connection);
+    unpooledDataSourceProduct.configureConnection(connection);
     return connection;
   }
 
@@ -243,18 +240,6 @@ public class UnpooledDataSource implements DataSource {
       } catch (Exception e) {
         throw new SQLException("Error setting driver on UnpooledDataSource. Cause: " + e);
       }
-    }
-  }
-
-  private void configureConnection(Connection conn) throws SQLException {
-    if (defaultNetworkTimeout != null) {
-      conn.setNetworkTimeout(Executors.newSingleThreadExecutor(), defaultNetworkTimeout);
-    }
-    if (autoCommit != null && autoCommit != conn.getAutoCommit()) {
-      conn.setAutoCommit(autoCommit);
-    }
-    if (defaultTransactionIsolationLevel != null) {
-      conn.setTransactionIsolation(defaultTransactionIsolationLevel);
     }
   }
 

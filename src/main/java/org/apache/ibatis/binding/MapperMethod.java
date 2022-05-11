@@ -79,7 +79,7 @@ public class MapperMethod {
         } else if (method.returnsMany()) {
           result = executeForMany(sqlSession, args);
         } else if (method.returnsMap()) {
-          result = executeForMap(sqlSession, args);
+          result = method.executeForMap(sqlSession, args, command);
         } else if (method.returnsCursor()) {
           result = executeForCursor(sqlSession, args);
         } else {
@@ -190,18 +190,6 @@ public class MapperMethod {
     }
   }
 
-  private <K, V> Map<K, V> executeForMap(SqlSession sqlSession, Object[] args) {
-    Map<K, V> result;
-    Object param = method.convertArgsToSqlCommandParam(args);
-    if (method.hasRowBounds()) {
-      RowBounds rowBounds = method.extractRowBounds(args);
-      result = sqlSession.selectMap(command.getName(), param, method.getMapKey(), rowBounds);
-    } else {
-      result = sqlSession.selectMap(command.getName(), param, method.getMapKey());
-    }
-    return result;
-  }
-
   public static class ParamMap<V> extends HashMap<String, V> {
 
     private static final long serialVersionUID = -2212268410512043556L;
@@ -274,15 +262,15 @@ public class MapperMethod {
 
   public static class MethodSignature {
 
-    private final boolean returnsMany;
+    private MethodSignatureProduct2 methodSignatureProduct2;
+	private MethodSignatureProduct methodSignatureProduct;
+	private final boolean returnsMany;
     private final boolean returnsMap;
     private final boolean returnsVoid;
     private final boolean returnsCursor;
     private final boolean returnsOptional;
     private final Class<?> returnType;
     private final String mapKey;
-    private final Integer resultHandlerIndex;
-    private final Integer rowBoundsIndex;
     private final ParamNameResolver paramNameResolver;
 
     public MethodSignature(Configuration configuration, Class<?> mapperInterface, Method method) {
@@ -300,8 +288,8 @@ public class MapperMethod {
       this.returnsOptional = Optional.class.equals(this.returnType);
       this.mapKey = getMapKey(method);
       this.returnsMap = this.mapKey != null;
-      this.rowBoundsIndex = getUniqueParamIndex(method, RowBounds.class);
-      this.resultHandlerIndex = getUniqueParamIndex(method, ResultHandler.class);
+	this.methodSignatureProduct = new MethodSignatureProduct(getUniqueParamIndex(method, RowBounds.class));
+	this.methodSignatureProduct2 = new MethodSignatureProduct2(getUniqueParamIndex(method, ResultHandler.class));
       this.paramNameResolver = new ParamNameResolver(configuration, method);
     }
 
@@ -310,19 +298,19 @@ public class MapperMethod {
     }
 
     public boolean hasRowBounds() {
-      return rowBoundsIndex != null;
+      return methodSignatureProduct.hasRowBounds();
     }
 
     public RowBounds extractRowBounds(Object[] args) {
-      return hasRowBounds() ? (RowBounds) args[rowBoundsIndex] : null;
+      return methodSignatureProduct.extractRowBounds(args);
     }
 
     public boolean hasResultHandler() {
-      return resultHandlerIndex != null;
+      return methodSignatureProduct2.hasResultHandler();
     }
 
     public ResultHandler extractResultHandler(Object[] args) {
-      return hasResultHandler() ? (ResultHandler) args[resultHandlerIndex] : null;
+      return methodSignatureProduct2.extractResultHandler(args);
     }
 
     public Class<?> getReturnType() {
@@ -384,6 +372,18 @@ public class MapperMethod {
       }
       return mapKey;
     }
+
+	public <K, V> Map<K, V> executeForMap(SqlSession sqlSession, Object[] args, SqlCommand command) {
+		Map<K, V> result;
+		Object param = convertArgsToSqlCommandParam(args);
+		if (hasRowBounds()) {
+			RowBounds rowBounds = extractRowBounds(args);
+			result = sqlSession.selectMap(command.getName(), param, getMapKey(), rowBounds);
+		} else {
+			result = sqlSession.selectMap(command.getName(), param, getMapKey());
+		}
+		return result;
+	}
   }
 
 }

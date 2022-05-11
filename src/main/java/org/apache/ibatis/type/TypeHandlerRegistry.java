@@ -22,6 +22,9 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,11 +36,14 @@ import java.time.Year;
 import java.time.YearMonth;
 import java.time.ZonedDateTime;
 import java.time.chrono.JapaneseDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -483,5 +489,35 @@ public final class TypeHandlerRegistry {
   public Collection<TypeHandler<?>> getTypeHandlers() {
     return Collections.unmodifiableCollection(allTypeHandlersMap.values());
   }
+
+public List<Map<String, Object>> getResults(ResultSet rs) throws SQLException {
+	List<Map<String, Object>> list = new ArrayList<>();
+	List<String> columns = new ArrayList<>();
+	List<TypeHandler<?>> typeHandlers = new ArrayList<>();
+	ResultSetMetaData rsmd = rs.getMetaData();
+	for (int i = 0, n = rsmd.getColumnCount(); i < n; i++) {
+		columns.add(rsmd.getColumnLabel(i + 1));
+		try {
+			Class<?> type = Resources.classForName(rsmd.getColumnClassName(i + 1));
+			TypeHandler<?> typeHandler = getTypeHandler(type);
+			if (typeHandler == null) {
+				typeHandler = getTypeHandler(Object.class);
+			}
+			typeHandlers.add(typeHandler);
+		} catch (Exception e) {
+			typeHandlers.add(getTypeHandler(Object.class));
+		}
+	}
+	while (rs.next()) {
+		Map<String, Object> row = new HashMap<>();
+		for (int i = 0, n = columns.size(); i < n; i++) {
+			String name = columns.get(i);
+			TypeHandler<?> handler = typeHandlers.get(i);
+			row.put(name.toUpperCase(Locale.ENGLISH), handler.getResult(rs, name));
+		}
+		list.add(row);
+	}
+	return list;
+}
 
 }

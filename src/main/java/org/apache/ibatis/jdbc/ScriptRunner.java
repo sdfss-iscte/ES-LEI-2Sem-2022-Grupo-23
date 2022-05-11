@@ -37,7 +37,9 @@ import java.util.regex.Pattern;
  */
 public class ScriptRunner {
 
-  private static final String LINE_SEPARATOR = System.lineSeparator();
+  private ScriptRunnerProduct scriptRunnerProduct = new ScriptRunnerProduct();
+
+private static final String LINE_SEPARATOR = System.lineSeparator();
 
   private static final String DEFAULT_DELIMITER = ";";
 
@@ -133,7 +135,7 @@ public class ScriptRunner {
         script.append(LINE_SEPARATOR);
       }
       String command = script.toString();
-      println(command);
+      scriptRunnerProduct.println(command, this.logWriter);
       executeStatement(command);
       commitConnection();
     } catch (Exception e) {
@@ -215,11 +217,11 @@ public class ScriptRunner {
       if (matcher.find()) {
         delimiter = matcher.group(5);
       }
-      println(trimmedLine);
+      scriptRunnerProduct.println(trimmedLine, this.logWriter);
     } else if (commandReadyToExecute(trimmedLine)) {
       command.append(line, 0, line.lastIndexOf(delimiter));
       command.append(LINE_SEPARATOR);
-      println(command);
+      scriptRunnerProduct.println(command, this.logWriter);
       executeStatement(command.toString());
       command.setLength(0);
     } else if (trimmedLine.length() > 0) {
@@ -248,7 +250,7 @@ public class ScriptRunner {
         boolean hasResults = statement.execute(sql);
         while (!(!hasResults && statement.getUpdateCount() == -1)) {
           checkWarnings(statement);
-          printResults(statement, hasResults);
+          scriptRunnerProduct.printResults(statement, hasResults, this, this.logWriter);
           hasResults = statement.getMoreResults();
         }
       } catch (SQLWarning e) {
@@ -276,45 +278,7 @@ public class ScriptRunner {
     }
   }
 
-  private void printResults(Statement statement, boolean hasResults) {
-    if (!hasResults) {
-      return;
-    }
-    try (ResultSet rs = statement.getResultSet()) {
-      ResultSetMetaData md = rs.getMetaData();
-      int cols = md.getColumnCount();
-      for (int i = 0; i < cols; i++) {
-        String name = md.getColumnLabel(i + 1);
-        print(name + "\t");
-      }
-      println("");
-      while (rs.next()) {
-        for (int i = 0; i < cols; i++) {
-          String value = rs.getString(i + 1);
-          print(value + "\t");
-        }
-        println("");
-      }
-    } catch (SQLException e) {
-      printlnError("Error printing results: " + e.getMessage());
-    }
-  }
-
-  private void print(Object o) {
-    if (logWriter != null) {
-      logWriter.print(o);
-      logWriter.flush();
-    }
-  }
-
-  private void println(Object o) {
-    if (logWriter != null) {
-      logWriter.println(o);
-      logWriter.flush();
-    }
-  }
-
-  private void printlnError(Object o) {
+  public void printlnError(Object o) {
     if (errorLogWriter != null) {
       errorLogWriter.println(o);
       errorLogWriter.flush();

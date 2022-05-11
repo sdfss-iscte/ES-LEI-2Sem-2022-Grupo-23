@@ -256,15 +256,8 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private ResultMap resultMapElement(XNode resultMapNode, List<ResultMapping> additionalResultMappings, Class<?> enclosingType) {
     ErrorContext.instance().activity("processing " + resultMapNode.getValueBasedIdentifier());
-    String type = resultMapNode.getStringAttribute("type",
-        resultMapNode.getStringAttribute("ofType",
-            resultMapNode.getStringAttribute("resultType",
-                resultMapNode.getStringAttribute("javaType"))));
-    Class<?> typeClass = resolveClass(type);
-    if (typeClass == null) {
-      typeClass = inheritEnclosingType(resultMapNode, enclosingType);
-    }
-    Discriminator discriminator = null;
+    Class<?> typeClass = resultMapElementAux(resultMapNode, enclosingType);
+	Discriminator discriminator = null;
     List<ResultMapping> resultMappings = new ArrayList<>(additionalResultMappings);
     List<XNode> resultChildren = resultMapNode.getChildren();
     for (XNode resultChild : resultChildren) {
@@ -292,6 +285,16 @@ public class XMLMapperBuilder extends BaseBuilder {
       throw e;
     }
   }
+
+private Class<?> resultMapElementAux(XNode resultMapNode, Class<?> enclosingType) {
+	String type = resultMapNode.getStringAttribute("type", resultMapNode.getStringAttribute("ofType",
+			resultMapNode.getStringAttribute("resultType", resultMapNode.getStringAttribute("javaType"))));
+	Class<?> typeClass = resolveClass(type);
+	if (typeClass == null) {
+		typeClass = inheritEnclosingType(resultMapNode, enclosingType);
+	}
+	return typeClass;
+}
 
   protected Class<?> inheritEnclosingType(XNode resultMapNode, Class<?> enclosingType) {
     if ("association".equals(resultMapNode.getName()) && resultMapNode.getStringAttribute("resultMap") == null) {

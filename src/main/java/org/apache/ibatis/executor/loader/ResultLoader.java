@@ -75,7 +75,7 @@ public class ResultLoader {
   private <E> List<E> selectList() throws SQLException {
     Executor localExecutor = executor;
     if (Thread.currentThread().getId() != this.creatorThreadId || localExecutor.isClosed()) {
-      localExecutor = newExecutor();
+      localExecutor = configuration.newExecutor();
     }
     try {
       return localExecutor.query(mappedStatement, parameterObject, RowBounds.DEFAULT, Executor.NO_RESULT_HANDLER, cacheKey, boundSql);
@@ -84,20 +84,6 @@ public class ResultLoader {
         localExecutor.close(false);
       }
     }
-  }
-
-  private Executor newExecutor() {
-    final Environment environment = configuration.getEnvironment();
-    if (environment == null) {
-      throw new ExecutorException("ResultLoader could not load lazily.  Environment was not configured.");
-    }
-    final DataSource ds = environment.getDataSource();
-    if (ds == null) {
-      throw new ExecutorException("ResultLoader could not load lazily.  DataSource was not configured.");
-    }
-    final TransactionFactory transactionFactory = environment.getTransactionFactory();
-    final Transaction tx = transactionFactory.newTransaction(ds, null, false);
-    return configuration.newExecutor(tx, ExecutorType.SIMPLE);
   }
 
   public boolean wasNull() {

@@ -15,11 +15,16 @@
  */
 package org.apache.ibatis.mapping;
 
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.ibatis.cache.Cache;
+import org.apache.ibatis.cache.TransactionalCacheManager;
+import org.apache.ibatis.executor.ExecutorException;
 import org.apache.ibatis.executor.keygen.Jdbc3KeyGenerator;
 import org.apache.ibatis.executor.keygen.KeyGenerator;
 import org.apache.ibatis.executor.keygen.NoKeyGenerator;
@@ -329,5 +334,42 @@ public final class MappedStatement {
       return in.split(",");
     }
   }
+
+public void processBatch(Statement stmt, Object parameter, Jdbc3KeyGenerator jdbc3KeyGenerator) {
+	final String[] keyProperties = getKeyProperties();
+	if (keyProperties == null || keyProperties.length == 0) {
+		return;
+	}
+	try (ResultSet rs = stmt.getGeneratedKeys()) {
+		final ResultSetMetaData rsmd = rs.getMetaData();
+		final Configuration configuration = getConfiguration();
+		if (rsmd.getColumnCount() < keyProperties.length) {
+		} else {
+			jdbc3KeyGenerator.assignKeys(configuration, rs, rsmd, keyProperties, parameter);
+		}
+	} catch (Exception e) {
+		throw new ExecutorException("Error getting generated key or setting result to parameter object. Cause: " + e,
+				e);
+	}
+}
+
+public void flushCacheIfRequired(TransactionalCacheManager tcm) {
+	Cache cache = getCache();
+	if (cache != null && isFlushCacheRequired()) {
+		tcm.clear(cache);
+	}
+}
+
+public void ensureNoOutParams(BoundSql boundSql) {
+	if (getStatementType() == StatementType.CALLABLE) {
+		for (ParameterMapping parameterMapping : boundSql.getParameterMappings()) {
+			if (parameterMapping.getMode() != ParameterMode.IN) {
+				throw new ExecutorException(
+						"Caching stored procedures with OUT params is not supported.  Please configure useCache=false in "
+								+ getId() + " statement.");
+			}
+		}
+	}
+}
 
 }

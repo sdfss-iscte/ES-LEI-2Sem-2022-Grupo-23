@@ -80,7 +80,7 @@ public class SqlRunner {
     try (PreparedStatement ps = connection.prepareStatement(sql)) {
       setParameters(ps, args);
       try (ResultSet rs = ps.executeQuery()) {
-        return getResults(rs);
+        return typeHandlerRegistry.getResults(rs);
       }
     }
   }
@@ -106,7 +106,7 @@ public class SqlRunner {
       ps.executeUpdate();
       if (useGeneratedKeySupport) {
         try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
-          List<Map<String, Object>> keys = getResults(generatedKeys);
+          List<Map<String, Object>> keys = typeHandlerRegistry.getResults(generatedKeys);
           if (keys.size() == 1) {
             Map<String, Object> key = keys.get(0);
             Iterator<Object> i = key.values().iterator();
@@ -200,36 +200,6 @@ public class SqlRunner {
         }
       }
     }
-  }
-
-  private List<Map<String, Object>> getResults(ResultSet rs) throws SQLException {
-    List<Map<String, Object>> list = new ArrayList<>();
-    List<String> columns = new ArrayList<>();
-    List<TypeHandler<?>> typeHandlers = new ArrayList<>();
-    ResultSetMetaData rsmd = rs.getMetaData();
-    for (int i = 0, n = rsmd.getColumnCount(); i < n; i++) {
-      columns.add(rsmd.getColumnLabel(i + 1));
-      try {
-        Class<?> type = Resources.classForName(rsmd.getColumnClassName(i + 1));
-        TypeHandler<?> typeHandler = typeHandlerRegistry.getTypeHandler(type);
-        if (typeHandler == null) {
-          typeHandler = typeHandlerRegistry.getTypeHandler(Object.class);
-        }
-        typeHandlers.add(typeHandler);
-      } catch (Exception e) {
-        typeHandlers.add(typeHandlerRegistry.getTypeHandler(Object.class));
-      }
-    }
-    while (rs.next()) {
-      Map<String, Object> row = new HashMap<>();
-      for (int i = 0, n = columns.size(); i < n; i++) {
-        String name = columns.get(i);
-        TypeHandler<?> handler = typeHandlers.get(i);
-        row.put(name.toUpperCase(Locale.ENGLISH), handler.getResult(rs, name));
-      }
-      list.add(row);
-    }
-    return list;
   }
 
 }

@@ -72,13 +72,13 @@ public class CachingExecutor implements Executor {
 
   @Override
   public int update(MappedStatement ms, Object parameterObject) throws SQLException {
-    flushCacheIfRequired(ms);
+    ms.flushCacheIfRequired(tcm);
     return delegate.update(ms, parameterObject);
   }
 
   @Override
   public <E> Cursor<E> queryCursor(MappedStatement ms, Object parameter, RowBounds rowBounds) throws SQLException {
-    flushCacheIfRequired(ms);
+    ms.flushCacheIfRequired(tcm);
     return delegate.queryCursor(ms, parameter, rowBounds);
   }
 
@@ -94,9 +94,9 @@ public class CachingExecutor implements Executor {
       throws SQLException {
     Cache cache = ms.getCache();
     if (cache != null) {
-      flushCacheIfRequired(ms);
+      ms.flushCacheIfRequired(tcm);
       if (ms.isUseCache() && resultHandler == null) {
-        ensureNoOutParams(ms, boundSql);
+        ms.ensureNoOutParams(boundSql);
         @SuppressWarnings("unchecked")
         List<E> list = (List<E>) tcm.getObject(cache, key);
         if (list == null) {
@@ -131,16 +131,6 @@ public class CachingExecutor implements Executor {
     }
   }
 
-  private void ensureNoOutParams(MappedStatement ms, BoundSql boundSql) {
-    if (ms.getStatementType() == StatementType.CALLABLE) {
-      for (ParameterMapping parameterMapping : boundSql.getParameterMappings()) {
-        if (parameterMapping.getMode() != ParameterMode.IN) {
-          throw new ExecutorException("Caching stored procedures with OUT params is not supported.  Please configure useCache=false in " + ms.getId() + " statement.");
-        }
-      }
-    }
-  }
-
   @Override
   public CacheKey createCacheKey(MappedStatement ms, Object parameterObject, RowBounds rowBounds, BoundSql boundSql) {
     return delegate.createCacheKey(ms, parameterObject, rowBounds, boundSql);
@@ -159,13 +149,6 @@ public class CachingExecutor implements Executor {
   @Override
   public void clearLocalCache() {
     delegate.clearLocalCache();
-  }
-
-  private void flushCacheIfRequired(MappedStatement ms) {
-    Cache cache = ms.getCache();
-    if (cache != null && ms.isFlushCacheRequired()) {
-      tcm.clear(cache);
-    }
   }
 
   @Override

@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.BiFunction;
-
+import javax.sql.DataSource;
 import org.apache.ibatis.binding.MapperRegistry;
 import org.apache.ibatis.builder.CacheRefResolver;
 import org.apache.ibatis.builder.IncompleteElementException;
@@ -45,6 +45,7 @@ import org.apache.ibatis.datasource.unpooled.UnpooledDataSourceFactory;
 import org.apache.ibatis.executor.BatchExecutor;
 import org.apache.ibatis.executor.CachingExecutor;
 import org.apache.ibatis.executor.Executor;
+import org.apache.ibatis.executor.ExecutorException;
 import org.apache.ibatis.executor.ReuseExecutor;
 import org.apache.ibatis.executor.SimpleExecutor;
 import org.apache.ibatis.executor.keygen.KeyGenerator;
@@ -88,6 +89,7 @@ import org.apache.ibatis.scripting.LanguageDriverRegistry;
 import org.apache.ibatis.scripting.defaults.RawLanguageDriver;
 import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
 import org.apache.ibatis.transaction.Transaction;
+import org.apache.ibatis.transaction.TransactionFactory;
 import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.apache.ibatis.transaction.managed.ManagedTransactionFactory;
 import org.apache.ibatis.type.JdbcType;
@@ -1077,5 +1079,19 @@ public class Configuration {
       return keyParts[keyParts.length - 1];
     }
   }
+
+public Executor newExecutor() {
+	final Environment environment = getEnvironment();
+	if (environment == null) {
+		throw new ExecutorException("ResultLoader could not load lazily.  Environment was not configured.");
+	}
+	final DataSource ds = environment.getDataSource();
+	if (ds == null) {
+		throw new ExecutorException("ResultLoader could not load lazily.  DataSource was not configured.");
+	}
+	final TransactionFactory transactionFactory = environment.getTransactionFactory();
+	final Transaction tx = transactionFactory.newTransaction(ds, null, false);
+	return newExecutor(tx, ExecutorType.SIMPLE);
+}
 
 }
