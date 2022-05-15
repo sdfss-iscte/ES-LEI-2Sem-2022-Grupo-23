@@ -40,13 +40,9 @@ import org.apache.ibatis.reflection.ArrayUtil;
  */
 public abstract class BaseJdbcLogger {
 
-  protected static final Set<String> SET_METHODS;
+  private BaseJdbcLoggerProduct baseJdbcLoggerProduct = new BaseJdbcLoggerProduct();
+protected static final Set<String> SET_METHODS;
   protected static final Set<String> EXECUTE_METHODS = new HashSet<>();
-
-  private final Map<Object, Object> columnMap = new HashMap<>();
-
-  private final List<Object> columnNames = new ArrayList<>();
-  private final List<Object> columnValues = new ArrayList<>();
 
   protected final Log statementLog;
   protected final int queryStack;
@@ -77,47 +73,27 @@ public abstract class BaseJdbcLogger {
   }
 
   protected void setColumn(Object key, Object value) {
-    columnMap.put(key, value);
-    columnNames.add(key);
-    columnValues.add(value);
+    baseJdbcLoggerProduct.setColumn(key, value);
   }
 
   protected Object getColumn(Object key) {
-    return columnMap.get(key);
+    return baseJdbcLoggerProduct.getColumn(key);
   }
 
   protected String getParameterValueString() {
-    List<Object> typeList = new ArrayList<>(columnValues.size());
-    for (Object value : columnValues) {
-      if (value == null) {
-        typeList.add("null");
-      } else {
-        typeList.add(objectValueString(value) + "(" + value.getClass().getSimpleName() + ")");
-      }
-    }
-    final String parameters = typeList.toString();
-    return parameters.substring(1, parameters.length() - 1);
+    return baseJdbcLoggerProduct.getParameterValueString();
   }
 
   protected String objectValueString(Object value) {
-    if (value instanceof Array) {
-      try {
-        return ArrayUtil.toString(((Array) value).getArray());
-      } catch (SQLException e) {
-        return value.toString();
-      }
-    }
-    return value.toString();
+    return baseJdbcLoggerProduct.objectValueString(value);
   }
 
   protected String getColumnString() {
-    return columnNames.toString();
+    return baseJdbcLoggerProduct.getColumnString();
   }
 
   protected void clearColumnInfo() {
-    columnMap.clear();
-    columnNames.clear();
-    columnValues.clear();
+    baseJdbcLoggerProduct.clearColumnInfo();
   }
 
   protected String removeExtraWhitespace(String original) {

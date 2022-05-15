@@ -372,13 +372,8 @@ private Class<?> resultMapElementAux(XNode resultMapNode, Class<?> enclosingType
   }
 
   private ResultMapping buildResultMappingFromContext(XNode context, Class<?> resultType, List<ResultFlag> flags) {
-    String property;
-    if (flags.contains(ResultFlag.CONSTRUCTOR)) {
-      property = context.getStringAttribute("name");
-    } else {
-      property = context.getStringAttribute("property");
-    }
-    String column = context.getStringAttribute("column");
+    String property = property(context, flags);
+	String column = context.getStringAttribute("column");
     String javaType = context.getStringAttribute("javaType");
     String jdbcType = context.getStringAttribute("jdbcType");
     String nestedSelect = context.getStringAttribute("select");
@@ -395,6 +390,16 @@ private Class<?> resultMapElementAux(XNode resultMapNode, Class<?> enclosingType
     JdbcType jdbcTypeEnum = resolveJdbcType(jdbcType);
     return builderAssistant.buildResultMapping(resultType, property, column, javaTypeClass, jdbcTypeEnum, nestedSelect, nestedResultMap, notNullColumn, columnPrefix, typeHandlerClass, flags, resultSet, foreignColumn, lazy);
   }
+
+private String property(XNode context, List<ResultFlag> flags) {
+	String property;
+	if (flags.contains(ResultFlag.CONSTRUCTOR)) {
+		property = context.getStringAttribute("name");
+	} else {
+		property = context.getStringAttribute("property");
+	}
+	return property;
+}
 
   private String processNestedResultMappings(XNode context, List<ResultMapping> resultMappings, Class<?> enclosingType) {
     if (Arrays.asList("association", "collection", "case").contains(context.getName())

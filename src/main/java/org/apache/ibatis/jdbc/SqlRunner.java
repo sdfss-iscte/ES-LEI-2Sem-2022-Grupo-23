@@ -94,14 +94,8 @@ public class SqlRunner {
    * @throws SQLException If statement preparation or execution fails
    */
   public int insert(String sql, Object... args) throws SQLException {
-    PreparedStatement ps;
-    if (useGeneratedKeySupport) {
-      ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-    } else {
-      ps = connection.prepareStatement(sql);
-    }
-
-    try {
+    PreparedStatement ps = ps(sql);
+	try {
       setParameters(ps, args);
       ps.executeUpdate();
       if (useGeneratedKeySupport) {
@@ -132,6 +126,16 @@ public class SqlRunner {
       }
     }
   }
+
+private PreparedStatement ps(String sql) throws SQLException {
+	PreparedStatement ps;
+	if (useGeneratedKeySupport) {
+		ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+	} else {
+		ps = connection.prepareStatement(sql);
+	}
+	return ps;
+}
 
   /**
    * Executes an UPDATE statement.

@@ -116,12 +116,10 @@ public class BatchExecutor extends BaseExecutor {
         return Collections.emptyList();
       }
       for (int i = 0, n = statementList.size(); i < n; i++) {
-        Statement stmt = statementList.get(i);
+        BatchResult batchResult = batchResult(results, i);
+		Statement stmt = statementList.get(i);
         applyTransactionTimeout(stmt);
-        BatchResult batchResult = batchResultList.get(i);
-        try {
-          batchResult.setUpdateCounts(stmt.executeBatch());
-          MappedStatement ms = batchResult.getMappedStatement();
+        MappedStatement ms = batchResult.getMappedStatement();
           List<Object> parameterObjects = batchResult.getParameterObjects();
           KeyGenerator keyGenerator = ms.getKeyGenerator();
           if (Jdbc3KeyGenerator.class.equals(keyGenerator.getClass())) {
@@ -134,20 +132,6 @@ public class BatchExecutor extends BaseExecutor {
           }
           // Close statement to close cursor #1109
           closeStatement(stmt);
-        } catch (BatchUpdateException e) {
-          StringBuilder message = new StringBuilder();
-          message.append(batchResult.getMappedStatement().getId())
-              .append(" (batch index #")
-              .append(i + 1)
-              .append(")")
-              .append(" failed.");
-          if (i > 0) {
-            message.append(" ")
-                .append(i)
-                .append(" prior sub executor(s) completed successfully, but will be rolled back.");
-          }
-          throw new BatchExecutorException(message.toString(), e, results, batchResult);
-        }
         results.add(batchResult);
       }
       return results;
@@ -160,5 +144,12 @@ public class BatchExecutor extends BaseExecutor {
       batchResultList.clear();
     }
   }
+
+private BatchResult batchResult(List<BatchResult> results, int i) throws SQLException {
+	Statement stmt = statementList.get(i);
+	BatchResult batchResult = batchResultList.get(i);
+	batchResult.setUpdateCounts(stmt.executeBatch());
+	return batchResult;
+}
 
 }
